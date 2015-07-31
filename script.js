@@ -20,6 +20,7 @@ d3.csv('head.csv', function(error, flights) {
   flights.forEach(function(d, i) {
     d.index = i;
     d.date = parseDate(d.date);
+    d.hour = d.date.getHours() + d.date.getMinutes() / 60;
     d.calories = parseFloat(d.calories);
     d.gsr = parseFloat(d.gsr);
     d.steps = +d.steps;
@@ -32,18 +33,23 @@ d3.csv('head.csv', function(error, flights) {
   var all = flight.groupAll();
   var date = flight.dimension(function(d) { return d.date; });
   var dates = date.group(d3.time.day);
-  var hour = flight.dimension(function(d) { return d.date.getHours() + d.date.getMinutes() / 60; });
+  var hour = flight.dimension(function(d) { return d.hour });
   var hours = hour.group(Math.floor);
   var calorie = flight.dimension(function(d) { return d.calories; });
-  var calories = calorie.group(function(d){ return d });
-  var gsr = flight.dimension(function(d) { return d.gsr; });
-  var gsrs  =  gsr.group(function(d) { return Math.floor(d / 0.00025) * 0.00025; });
+  var calories = calorie.group(function(d) { return Math.floor(d); });
   var step = flight.dimension(function(d) { return d.steps; });
-  var steps = step.group(Math.floor);
+  var steps = step.group(function(d) { return Math.floor(d / 4) * 4; });
   var heartRate = flight.dimension(function(d) { return d.heartRate; });
   var heartRates =  heartRate.group(function(d) { return Math.floor(d / 5) * 5; });
   var skinTemp = flight.dimension(function(d) { return d.skinTemp; });
   var skinTemps = skinTemp.group(Math.floor);
+  var gsr = flight.dimension(function(d) {
+    if (isNaN(d.gsr)) {
+      return 0;
+    }
+    return d.gsr;
+  });
+  var gsrs  =  gsr.group(function(d) { return Math.floor(d / 0.00025) * 0.00025; });
 
   //var delay = flight.dimension(function(d) { return Math.max(-60, Math.min(149, d.delay)); });
   //var delays = delay.group(function(d) { return Math.floor(d / 10) * 10; });
@@ -63,7 +69,7 @@ d3.csv('head.csv', function(error, flights) {
         .dimension(calorie)
         .group(calories)
       .x(d3.scale.linear()
-        .domain([0, 5])
+        .domain([0, 20])
         .rangeRound([0, 10 * 21])),
 
     barChart()
@@ -91,7 +97,7 @@ d3.csv('head.csv', function(error, flights) {
         .dimension(step)
         .group(steps)
       .x(d3.scale.linear()
-        .domain([0, 200])
+        .domain([0, 160])
         .rangeRound([0, 10 * 40])),
 
     barChart()
@@ -387,5 +393,153 @@ d3.csv('head.csv', function(error, flights) {
 
     return d3.rebind(chart, brush, 'on');
   }
+
+  // Scatterplot
+  !(function scatterplot() {
+    var size = 140;
+    var padding = 10;
+    var n = 6;
+    var x = {};
+    var y = {};
+    var dimensions = ['steps', 'skinTemp', 'heartRate', 'gsr', 'calories', 'hour'];
+
+    dimensions.forEach(function(dimension) {
+      var value = function(d) { return d[dimension]; };
+      var domain = [d3.min(flights, value), d3.max(flights, value)];
+      var range = [padding / 2, size - padding / 2];
+
+      x[dimension] = d3.scale.linear().domain(domain).range(range);
+      y[dimension] = d3.scale.linear().domain(domain).range(range.reverse());
+    });
+
+    // Axes.
+    var axis = d3.svg.axis()
+      .ticks(5)
+      .tickSize(size * n);
+
+    // Brush.
+    var brush = d3.svg.brush()
+      .on('brushstart', brushstart)
+      .on('brush', brush)
+      .on('brushend', brushend)
+
+    // Root panel
+    var svg = d3.select('.sp').append('svg:svg')
+      .attr('width', 800)
+      .attr('height', 800)
+      .append('svg:g')
+      .attr('transform', 'translate(359.5,69.5)');
+
+    // Legend.
+    var legend = svg.selectAll('g.legend')
+      .data(['setosa', 'versicolor', 'virginica'])
+      .enter().append('svg:g')
+        .attr('class', 'legend')
+        .attr('transform', function(d, i) { return 'translate(-179,' + (i * 20 + 594) + ')'; });
+
+    legend.append('svg:circle')
+      .attr('class', String)
+      .attr('r', 3);
+
+    legend.append('svg:text')
+      .attr('x', 12)
+      .attr('dy', '.31em')
+      .text(function(d) { return 'Iris ' + d; });
+
+    // X-axis.
+    svg.selectAll('g.x.axis')
+      .data(dimensions)
+      .enter().append('svg:g')
+        .attr('class', 'x axis')
+        .attr('transform', function(d, i) { return 'translate(' + i * size + ',0)'; })
+        .each(function(d) { d3.select(this).call(axis.scale(x[d]).orient('bottom')); });
+
+    // Y-axis.
+    svg.selectAll('g.y.axis')
+      .data(dimensions)
+      .enter().append('svg:g')
+        .attr('class', 'y axis')
+        .attr('transform', function(d, i) { return 'translate(0,' + i * size + ')'; })
+        .each(function(d) { d3.select(this).call(axis.scale(y[d]).orient('right')); });
+
+    // Cell and plot.
+    var cell = svg.selectAll('g.cell')
+      .data(cross(dimensions, dimensions))
+      .enter().append('svg:g')
+        .attr('class', 'cell')
+        .attr('transform', function(d) { return 'translate(' + d.i * size + ',' + d.j * size + ')'; })
+        .each(plot);
+
+    // Titles for the diagonal.
+    cell.filter(function(d) { return d.i == d.j; }).append('svg:text')
+      .attr('x', padding)
+      .attr('y', padding)
+      .attr('dy', '.71em')
+      .text(function(d) { return d.x; });
+
+    function plot(p) {
+      var cell = d3.select(this);
+
+      // Plot frame.
+      cell.append('svg:rect')
+        .attr('class', 'frame')
+        .attr('x', padding / 2)
+        .attr('y', padding / 2)
+        .attr('width', size - padding)
+        .attr('height', size - padding);
+
+      // Plot dots.
+      cell.selectAll('circle')
+        .data(flights)
+        .enter().append('svg:circle')
+          .attr('class', function(d) { return d.species; })
+          .attr('cx', function(d) { return x[p.x](d[p.x]); })
+          .attr('cy', function(d) { return y[p.y](d[p.y]); })
+          .attr('r', 3);
+
+      // Plot brush.
+      cell.call(brush.x(x[p.x]).y(y[p.y]));
+    }
+
+    // Clear the previously-active brush, if any.
+    function brushstart(p) {
+      if (brush.data !== p) {
+        cell.call(brush.clear());
+        brush.x(x[p.x]).y(y[p.y]).data = p;
+      }
+    }
+
+    // Highlight the selected circles.
+    function brush(p) {
+      var e = brush.extent();
+      svg.selectAll('.cell circle').attr('class', function(d) {
+        return e[0][0] <= d[p.x] && d[p.x] <= e[1][0]
+            && e[0][1] <= d[p.y] && d[p.y] <= e[1][1]
+            ? d.species : null;
+      });
+    }
+
+    // If the brush is empty, select all circles.
+    function brushend() {
+      if (brush.empty()) svg.selectAll('.cell circle').attr('class', function(d) {
+        return d.species;
+      });
+    }
+
+    function cross(a, b) {
+      var c = [];
+      var n = a.length;
+      var m = b.length;
+      var i;
+      var j;
+      for (i = -1; ++i < n;) {
+        for (j = -1; ++j < m;) {
+          c.push({x: a[i], i: i, y: b[j], j: j});
+        }
+        return c;
+      }
+    }
+  })();
+
 });
 
