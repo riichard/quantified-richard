@@ -1,6 +1,6 @@
 var debug = {};
 // (It's CSV, but GitHub Pages only gzip's JSON at the moment.)
-d3.csv('bodymetrics.json', function(error, entries) {
+d3.csv('head.json', function(error, entries) {
 
   // Various formatters.
   var formatNumber = d3.format(',d');
