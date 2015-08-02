@@ -68,7 +68,7 @@ h1, h2 {
 .axis path, .axis line {
   fill: none;
   stroke: #000;
-  shape-rendering: crispEdges;
+  shape-rendering: crEdges;
 }
 
 .axis text {
@@ -101,39 +101,39 @@ h1, h2 {
   width: 920px;
 }
 
-#flight-list {
+#entry-list {
   min-height: 1024px;
 }
 
-#flight-list .date,
-#flight-list .day {
+#entry-list .date,
+#entry-list .day {
   margin-bottom: .4em;
 }
 
-#flight-list .flight {
+#entry-list .entry {
   line-height: 1.5em;
   background: #eee;
   width: 640px;
   margin-bottom: 1px;
 }
 
-#flight-list .time {
+#entry-list .time {
   color: #999;
 }
 
-#flight-list .flight div {
+#entry-list .entry div {
   display: inline-block;
   width: 100px;
 }
 
-#flight-list div.distance,
-#flight-list div.delay {
+#entry-list div.distance,
+#entry-list div.delay {
   width: 160px;
   padding-right: 10px;
   text-align: right;
 }
 
-#flight-list .early {
+#entry-list .early {
   color: green;
 }
 
@@ -142,5 +142,63 @@ aside {
   left: 740px;
   font-size: smaller;
   width: 220px;
+}
+
+
+/* Scatterplot */
+.sp .axis {
+  shape-rendering: crEdges;
+}
+
+.sp .axis line {
+  stroke: #ddd;
+  stroke-width: .5px;
+}
+
+.sp .axis path {
+  display: none;
+}
+
+.sp rect.extent {
+  fill: #000;
+  fill-opacity: .125;
+  stroke: #fff;
+}
+
+.sp rect.frame {
+  fill: #fff;
+  fill-opacity: .7;
+  stroke: #aaa;
+}
+
+.sp circle {
+  /*fill: #ccc;*/
+  fill: #008;
+  /*fill-opacity: .5;*/
+}
+
+.sp .legend circle {
+  fill-opacity: 1;
+}
+
+.sp .legend text {
+  font-size: 18px;
+  font-style: oblique;
+}
+
+.sp .cell text {
+  pointer-events: none;
+}
+
+.sp .setosa {
+  fill: #800;
+}
+
+.sp .versicolor {
+  fill: #080;
+}
+
+.sp .virginica {
+  fill: #008;
 }
 

@@ -1,5 +1,6 @@
+var debug = {};
 // (It's CSV, but GitHub Pages only gzip's JSON at the moment.)
-d3.csv('head.csv', function(error, flights) {
+d3.csv('head.csv', function(error, entries) {
 
   // Various formatters.
   var formatNumber = d3.format(',d');
@@ -7,7 +8,7 @@ d3.csv('head.csv', function(error, flights) {
   var formatDate = d3.time.format('%B %d, %Y');
   var formatTime = d3.time.format('%I:%M %p');
 
-  // A nest operator, for grouping the flight list.
+  // A nest operator, for grouping the entry list.
   var nestByDate = d3.nest()
       .key(function(d) { return d3.time.day(d.date); });
 
@@ -17,7 +18,7 @@ d3.csv('head.csv', function(error, flights) {
   //2015-06-28 17:01Z , 2.1      , 0.00135857 , 66         , 92.3      , 0
 
   // A little coercion, since the CSV is untyped.
-  flights.forEach(function(d, i) {
+  entries.forEach(function(d, i) {
     d.index = i;
     d.date = parseDate(d.date);
     d.hour = d.date.getHours() + d.date.getMinutes() / 60;
@@ -29,21 +30,25 @@ d3.csv('head.csv', function(error, flights) {
   });
 
   // Create the crossfilter for the relevant dimensions and groups.
-  var flight = crossfilter(flights);
-  var all = flight.groupAll();
-  var date = flight.dimension(function(d) { return d.date; });
+  var entry = crossfilter(entries);
+  var all = entry.groupAll();
+  var date = entry.dimension(function(d) { return d.date; });
   var dates = date.group(d3.time.day);
-  var hour = flight.dimension(function(d) { return d.hour });
+  var hour = entry.dimension(function(d) { return d.hour });
   var hours = hour.group(Math.floor);
-  var calorie = flight.dimension(function(d) { return d.calories; });
+  console.log(hours);
+  debug.hour = hour;
+  debug.hours = hours;
+
+  var calorie = entry.dimension(function(d) { return d.calories; });
   var calories = calorie.group(function(d) { return Math.floor(d); });
-  var step = flight.dimension(function(d) { return d.steps; });
+  var step = entry.dimension(function(d) { return d.steps; });
   var steps = step.group(function(d) { return Math.floor(d / 4) * 4; });
-  var heartRate = flight.dimension(function(d) { return d.heartRate; });
+  var heartRate = entry.dimension(function(d) { return d.heartRate; });
   var heartRates =  heartRate.group(function(d) { return Math.floor(d / 5) * 5; });
-  var skinTemp = flight.dimension(function(d) { return d.skinTemp; });
+  var skinTemp = entry.dimension(function(d) { return d.skinTemp; });
   var skinTemps = skinTemp.group(Math.floor);
-  var gsr = flight.dimension(function(d) {
+  var gsr = entry.dimension(function(d) {
     if (isNaN(d.gsr)) {
       return 0;
     }
@@ -51,9 +56,9 @@ d3.csv('head.csv', function(error, flights) {
   });
   var gsrs  =  gsr.group(function(d) { return Math.floor(d / 0.00025) * 0.00025; });
 
-  //var delay = flight.dimension(function(d) { return Math.max(-60, Math.min(149, d.delay)); });
+  //var delay = entry.dimension(function(d) { return Math.max(-60, Math.min(149, d.delay)); });
   //var delays = delay.group(function(d) { return Math.floor(d / 10) * 10; });
-  //var distance = flight.dimension(function(d) { return Math.min(1999, d.distance); });
+  //var distance = entry.dimension(function(d) { return Math.min(1999, d.distance); });
   //var distances = distance.group(function(d) { return Math.floor(d / 50) * 50; });
 
   var charts = [
@@ -105,9 +110,9 @@ d3.csv('head.csv', function(error, flights) {
         .group(dates)
         .round(d3.time.day.round)
       .x(d3.time.scale()
-        .domain([flights[0].date, flights[flights.length - 1].date])
+        .domain([entries[0].date, entries[entries.length - 1].date])
         .rangeRound([0, 10 * 90]))
-        .filter([flights[0].date, flights[flights.length - 1].date])
+        .filter([entries[0].date, entries[entries.length - 1].date])
 
   ];
 
@@ -120,11 +125,11 @@ d3.csv('head.csv', function(error, flights) {
 
   // Render the initial lists.
   var list = d3.selectAll('.list')
-      .data([flightList]);
+      .data([entryList]);
 
   // Render the total.
   d3.selectAll('#total')
-      .text(formatNumber(flight.size()));
+      .text(formatNumber(entry.size()));
 
   renderAll();
 
@@ -155,12 +160,12 @@ d3.csv('head.csv', function(error, flights) {
     renderAll();
   };
 
-  function flightList(div) {
-    var flightsByDate = nestByDate.entries(date.top(40));
+  function entryList(div) {
+    var entriesByDate = nestByDate.entries(date.top(40));
 
     div.each(function() {
       var date = d3.select(this).selectAll('.date')
-          .data(flightsByDate, function(d) { return d.key; });
+          .data(entriesByDate, function(d) { return d.key; });
 
       date.enter().append('div')
           .attr('class', 'date')
@@ -170,35 +175,35 @@ d3.csv('head.csv', function(error, flights) {
 
       date.exit().remove();
 
-      var flight = date.order().selectAll('.flight')
+      var entry = date.order().selectAll('.entry')
           .data(function(d) { return d.values; }, function(d) { return d.index; });
 
-      var flightEnter = flight.enter().append('div')
-          .attr('class', 'flight');
+      var entryEnter = entry.enter().append('div')
+          .attr('class', 'entry');
 
-      flightEnter.append('div')
+      entryEnter.append('div')
           .attr('class', 'time')
           .text(function(d) { return formatTime(d.date); });
 
-      flightEnter.append('div')
+      entryEnter.append('div')
           .attr('class', 'gsr')
           .text(function(d) { return d.gsr; });
 
-      flightEnter.append('div')
+      entryEnter.append('div')
           .attr('class', 'steps')
           .text(function(d) { return d.steps; });
 
-      flightEnter.append('div')
+      entryEnter.append('div')
           .attr('class', 'calories')
           .text(function(d) { return d.calories; });
 
-      flightEnter.append('div')
+      entryEnter.append('div')
           .attr('class', 'heartRate')
           .text(function(d) { return d.heartRate; });
 
-      flight.exit().remove();
+      entry.exit().remove();
 
-      flight.order();
+      entry.order();
     });
   }
 
@@ -396,21 +401,26 @@ d3.csv('head.csv', function(error, flights) {
 
   // Scatterplot
   !(function scatterplot() {
-    var size = 140;
+    var size = 130;
     var padding = 10;
     var n = 6;
     var x = {};
     var y = {};
-    var dimensions = ['steps', 'skinTemp', 'heartRate', 'gsr', 'calories', 'hour'];
+    var dimensions = ['steps', 'heartRate', 'skinTemp', 'gsr', 'calories', 'hour'];
 
     dimensions.forEach(function(dimension) {
       var value = function(d) { return d[dimension]; };
-      var domain = [d3.min(flights, value), d3.max(flights, value)];
+      var domain = [d3.min(entries, value), d3.max(entries, value)];
+      console.log(domain);
       var range = [padding / 2, size - padding / 2];
 
       x[dimension] = d3.scale.linear().domain(domain).range(range);
       y[dimension] = d3.scale.linear().domain(domain).range(range.reverse());
     });
+    debug.sp = {
+        x : x,
+        y : y
+    };
 
     // Axes.
     var axis = d3.svg.axis()
@@ -427,8 +437,7 @@ d3.csv('head.csv', function(error, flights) {
     var svg = d3.select('.sp').append('svg:svg')
       .attr('width', 800)
       .attr('height', 800)
-      .append('svg:g')
-      .attr('transform', 'translate(359.5,69.5)');
+      .append('svg:g');
 
     // Legend.
     var legend = svg.selectAll('g.legend')
@@ -439,7 +448,7 @@ d3.csv('head.csv', function(error, flights) {
 
     legend.append('svg:circle')
       .attr('class', String)
-      .attr('r', 3);
+      .attr('r', 1);
 
     legend.append('svg:text')
       .attr('x', 12)
@@ -490,7 +499,7 @@ d3.csv('head.csv', function(error, flights) {
 
       // Plot dots.
       cell.selectAll('circle')
-        .data(flights)
+        .data(entries)
         .enter().append('svg:circle')
           .attr('class', function(d) { return d.species; })
           .attr('cx', function(d) { return x[p.x](d[p.x]); })
@@ -536,8 +545,8 @@ d3.csv('head.csv', function(error, flights) {
         for (j = -1; ++j < m;) {
           c.push({x: a[i], i: i, y: b[j], j: j});
         }
-        return c;
       }
+      return c;
     }
   })();
 
