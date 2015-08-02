@@ -1,6 +1,6 @@
 var debug = {};
 // (It's CSV, but GitHub Pages only gzip's JSON at the moment.)
-d3.csv('head.json', function(error, entries) {
+d3.csv('bodymetrics.json', function(error, entries) {
 
   // Various formatters.
   var formatNumber = d3.format(',d');
@@ -36,7 +36,6 @@ d3.csv('head.json', function(error, entries) {
   var dates = date.group(d3.time.day);
   var hour = entry.dimension(function(d) { return d.hour });
   var hours = hour.group(Math.floor);
-  console.log(hours);
   debug.hour = hour;
   debug.hours = hours;
 
@@ -147,7 +146,11 @@ d3.csv('head.json', function(error, entries) {
 
   // Like d3.time.format, but faster.
   function parseDate(d) {
-    return new Date(d);
+    // Safari can't parse datestrings
+    // Found a parser here:
+    // https://stackoverflow.com/questions/6427204/date-parsing-in-javascript-is-different-between-safari-and-chrome
+    var a = d.split(/[^0-9]/);
+    return new Date (a[0],a[1]-1,a[2],a[3],a[4],a[5] );
   }
 
   window.filter = function(filters) {
@@ -411,7 +414,6 @@ d3.csv('head.json', function(error, entries) {
     dimensions.forEach(function(dimension) {
       var value = function(d) { return d[dimension]; };
       var domain = [d3.min(entries, value), d3.max(entries, value)];
-      console.log(domain);
       var range = [padding / 2, size - padding / 2];
 
       x[dimension] = d3.scale.linear().domain(domain).range(range);
