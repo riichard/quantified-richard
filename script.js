@@ -548,7 +548,7 @@ d3.csv('head.csv', function(error, entries) {
       }
       return c;
     }
-  })();
+  });
 
 });
 
